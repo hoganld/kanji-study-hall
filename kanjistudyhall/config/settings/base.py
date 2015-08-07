@@ -42,6 +42,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = (
+    #builtins
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,9 +50,12 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.sites',
     'django.contrib.staticfiles',
+    # 3rd party
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
+    # local
+    'kanji',
 )
 
 MIDDLEWARE_CLASSES = (
