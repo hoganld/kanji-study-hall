@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.db.utils import DataError, IntegrityError
 from django.test import TestCase
 
-from .models import Kanji, KanjiCard, KanjiCardCollection
+from kanji.models import Kanji, KanjiCard, KanjiCardCollection
 
 User = get_user_model()
 
