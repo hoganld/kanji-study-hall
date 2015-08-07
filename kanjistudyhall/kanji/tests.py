@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.utils import IntegrityError
+from django.db.utils import DataError, IntegrityError
 from django.test import TestCase
 
 from unittest import skip
@@ -12,180 +12,122 @@ User = get_user_model()
 
 class KanjiTest(TestCase):
 
-    def test_create_kanji_fails_without_character(self):
+    def _create_kanji(self, index=13, keyword='month', character='月'):
         kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = 'month'
-        kanji.character = None
+        kanji.heisig_index = index
+        kanji.keyword = keyword
+        kanji.character = character
+        kanji.save()
+        return kanji
+
+    def test_create_kanji_fails_without_character(self):
         with self.assertRaises(IntegrityError):
-            kanji.save()
+            self._create_kanji(character=None)
 
     def test_create_kanji_fails_without_keyword(self):
-        kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = None
-        kanji.character = '月'
         with self.assertRaises(IntegrityError):
-            kanji.save()
+            self._create_kanji(keyword=None)
 
     def test_create_kanji_fails_without_heisig_index(self):
-        kanji = Kanji()
-        kanji.heisig_index = None
-        kanji.keyword = 'month'
-        kanji.character = '月'
         with self.assertRaises(IntegrityError):
-            kanji.save()
+            self._create_kanji(index=None)
 
     def test_create_kanji_fails_with_duplicate_character(self):
-        kanji = Kanji(character='月', keyword='month', heisig_index=13)
-        kanji.save()
-        dup = Kanji(character='月', keyword='neck', heisig_index=70)
+        self._create_kanji()
         with self.assertRaises(IntegrityError):
-            dup.save()
+            # set index and keyword to be different, but leave char as dup
+            self._create_kanji(index=70, keyword='neck')
 
     def test_create_kanji_fails_with_duplicate_keyword(self):
-        kanji = Kanji(character='月', keyword='month', heisig_index=13)
-        kanji.save()
-        dup = Kanji(character='首', keyword='month', heisig_index=70)
+        self._create_kanji()
         with self.assertRaises(IntegrityError):
-            dup.save()
+            # set index and char to be different, but leave keyword as dup
+            self._create_kanji(index=70, character='首')
 
     def test_create_kanji_fails_with_duplicate_heisig_index(self):
-        kanji = Kanji(character='月', keyword='month', heisig_index=13)
-        kanji.save()
-        dup = Kanji(character='首', keyword='neck', heisig_index=13)
+        self._create_kanji()
         with self.assertRaises(IntegrityError):
-            dup.save()
+            # set keyword and char to be different, but leave index as dup
+            self._create_kanji(keyword='neck', character='首')
 
     def test_create_kanji_fails_with_empty_character(self):
-        kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = 'month'
-        kanji.character = ''
+        kanji = self._create_kanji(character='')
         with self.assertRaises(ValidationError):
             kanji.full_clean()
 
     def test_create_kanji_fails_with_empty_keyword(self):
-        kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = ''
-        kanji.character = '月'
+        kanji = self._create_kanji(keyword='')
         with self.assertRaises(ValidationError):
             kanji.full_clean()
 
     def test_create_kanji_fails_with_multiple_characters(self):
-        kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = 'month'
-        kanji.character = '月光'
-        with self.assertRaises(ValidationError):
-            kanji.full_clean()
+        with self.assertRaises(DataError):
+            self._create_kanji(character='月光')
 
     def test_create_kanji_fails_with_negative_heisig_index(self):
-        kanji = Kanji()
-        kanji.heisig_index = -1
-        kanji.keyword = 'month'
-        kanji.character = '月'
-        with self.assertRaises(ValidationError):
-            kanji.full_clean()
+        with self.assertRaises(IntegrityError):
+            self._create_kanji(index=-1)
 
     def test_create_valid_kanji_succeeds(self):
-        kanji = Kanji()
-        kanji.heisig_index = 13
-        kanji.keyword = 'month'
-        kanji.character = '月'
         # should not raise
-        kanji.save()
+        kanji = self._create_kanji()
         kanji.full_clean()
 
         
 class KanjiCardTest(TestCase):
 
-    def test_create_card_fails_without_kanji(self):
+    def _create_collection(self):
         owner = User.objects.create()
         collection = KanjiCardCollection(owner=owner, name='default')
         collection.save()
-        card = KanjiCard()
-        card.mnemonic = 'waxing moon'
-        card.collection = collection
+        return collection
+
+    def _create_kanji(self):
+        kanji = Kanji(character='日', keyword='day', heisig_index=12)
+        kanji.save()
+        return kanji
+    
+    def _create_card(self,
+                     mnemonic='midday sun',
+                     assign_collection=True,
+                     assign_kanji=True):
+        card = KanjiCard(mnemonic=mnemonic)
+        if assign_collection:
+            card.collection = self._create_collection()
+        if assign_kanji:
+            card.kanji = self._create_kanji()
+        card.save()
+        return card
+
+    def test_create_card_fails_without_kanji(self):
         with self.assertRaises(IntegrityError):
-            card.save()
+            self._create_card(assign_kanji=False)
 
     def test_create_card_fails_without_mnemonic(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        card = KanjiCard()
-        kanji = Kanji.objects.create(character='日',
-                                      keyword='day',
-                                      heisig_index=12)
-        card.kanji = kanji
-        card.mnemonic = None
-        card.collection = collection
         with self.assertRaises(IntegrityError):
-            card.save()
+            self._create_card(mnemonic=None)
 
     def test_create_card_fails_without_collection(self):
-        owner = User.objects.create()
-        card = KanjiCard()
-        kanji = Kanji.objects.create(character='日',
-                                      keyword='day',
-                                      heisig_index=12)
-        card.kanji = kanji
-        card.mnemonic = None
         with self.assertRaises(IntegrityError):
-            card.save()
+            self._create_card(assign_collection=False)
 
     def test_create_card_with_empty_mnemonic(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        card = KanjiCard()
-        kanji = Kanji.objects.create(character='日',
-                                      keyword='day',
-                                      heisig_index=12)
-        card.kanji = kanji
-        card.mnemonic = ''
-        card.collection = collection
+        card = self._create_card(mnemonic='')
         with self.assertRaises(ValidationError):
             card.full_clean()
 
     def test_create_valid_card_succeeds(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        kanji = Kanji.objects.create(character='日',
-                                      keyword='day',
-                                      heisig_index=12)
-        card = KanjiCard()
-        card.kanji = kanji
-        card.mnemonic = 'midday sun'
-        card.collection = collection
         # should not raise
-        card.save()
+        self._create_card()
         self.assertEqual(KanjiCard.objects.count(), 1)
 
     def test_review_card_score_too_low_rejected(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        kanji = Kanji(character='日', keyword='day', heisig_index=12)
-        kanji.save()
-        mnemonic = 'midday sun'
-        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
-        card.save()
+        card = self._create_card()
         with self.assertRaises(ValueError):
             card.set_review_score(-1)
 
     def test_review_card_score_too_high_rejected(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        kanji = Kanji(character='日', keyword='day', heisig_index=12)
-        kanji.save()
-        mnemonic = 'midday sun'
-        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
-        card.save()
+        card = self._create_card()
         with self.assertRaises(ValueError):
             card.set_review_score(6)
 
@@ -202,14 +144,7 @@ class KanjiCardTest(TestCase):
         pass
 
     def test_review_total_increments_correctly(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name='default')
-        collection.save()
-        kanji = Kanji(character='日', keyword='day', heisig_index=12)
-        kanji.save()
-        mnemonic = 'midday sun'
-        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
-        card.save()
+        card = self._create_card()
         review_total = card.total_reviews
         card.set_review_score(3)
         new_total = card.total_reviews
@@ -218,10 +153,15 @@ class KanjiCardTest(TestCase):
 
 class KanjiCardCollectionTest(TestCase):
 
-    def test_add_card_with_duplicate_kanji_fails(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name="default")
+    def _create_collection(self, name='default', assign_owner=True):
+        collection = KanjiCardCollection(name=name)
+        if assign_owner:
+            collection.owner = User.objects.create()
         collection.save()
+        return collection
+
+    def test_add_card_with_duplicate_kanji_fails(self):
+        collection = self._create_collection()
         kanji = Kanji.objects.create(character='月',
                                      keyword='month',
                                      heisig_index=13)
@@ -234,10 +174,7 @@ class KanjiCardCollectionTest(TestCase):
                                              collection=collection)
 
     def test_add_card_with_duplicate_mnemonic_fails(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name="default")
-                                         
-        collection.save()
+        collection = self._create_collection()
         kanji1 = Kanji.objects.create(character='日',
                                      keyword='day',
                                      heisig_index=12)
@@ -253,9 +190,7 @@ class KanjiCardCollectionTest(TestCase):
                                              collection=collection)
         
     def test_add_two_different_cards_succeeds(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name="default")
-        collection.save()
+        collection = self._create_collection()
         kanji1 = Kanji.objects.create(character='日',
                                       keyword='day',
                                       heisig_index=12)
@@ -271,23 +206,19 @@ class KanjiCardCollectionTest(TestCase):
         self.assertEqual(collection.kanjicard_set.count(), 2)
         
     def test_create_collection_without_name_fails(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner)
-        with self.assertRaises(ValidationError):
-            collection.full_clean()
+        with self.assertRaises(IntegrityError):
+            self._create_collection(name=None)
 
     def test_create_collection_with_empty_name_fails(self):
-        owner = User.objects.create()
-        collection = KanjiCardCollection(owner=owner, name="")
+        collection = self._create_collection(name='')
         with self.assertRaises(ValidationError):
             collection.full_clean()
 
     def test_create_collection_with_existing_name_fails(self):
-        owner = User.objects.create()
-        KanjiCardCollection.objects.create(owner=owner, name="default")
-        collection = KanjiCardCollection(owner=owner, name="default")
+        self._create_collection()
         with self.assertRaises(IntegrityError):
-            collection.save()
+            # without changing the default name, this should raise
+            self._create_collection()
 
     @skip
     def test_get_next_card_for_review(self):
