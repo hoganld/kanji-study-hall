@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.db import models
 
@@ -39,9 +41,10 @@ class KanjiCard(models.Model):
     kanji = models.ForeignKey(Kanji)
     mnemonic = models.TextField()
     total_reviews = models.PositiveIntegerField(default=0)
-    last_reviewed = models.DateTimeField(auto_now=True)
-    last_missed = models.DateTimeField(auto_now=True)
-    next_review = models.DateField(auto_now=True)
+    consecutive_correct = models.PositiveIntegerField(default=0)
+    last_reviewed = models.DateField(auto_now_add=True)
+    last_missed = models.DateField(auto_now_add=True)
+    next_review = models.DateField(auto_now_add=True)
     efactor = models.FloatField(default=2.5)
 
     class Meta:
@@ -51,8 +54,42 @@ class KanjiCard(models.Model):
         )
 
     def set_review_score(self, score):
+        """Scores a card on a range of 0-5 and adjusts the review
+        schedule accordingly.
+
+        """
         if score not in range(0, 6):
             raise ValueError("Review Score must be between 0 and 5")
+        self._calculate_next_review(score)
+
+    def _calculate_next_review(self, score):
+        """Adjusts the e-factor and the next scheduled review according
+        to the SM2 algorithm.
+        Algorithm described here: http://www.supermemo.com/english/ol/sm2.htm
+        
+        """
+        today = datetime.date.today()
+        self.last_reviewed = today
         new_total = self.total_reviews + 1
-        self.total_reviews=new_total
+        self.total_reviews = new_total
+        if score > 2:
+            ef = self.efactor + (0.1 - (5 - score) * (0.08 + (5 - score) * 0.02))
+            if ef < 1.3:
+                ef = 1.3
+            self.efactor = ef
+            new_streak = self.consecutive_correct + 1
+            self.consecutive_correct = new_streak
+        else:
+            self.consecutive_correct = 0
+            self.last_missed = today
+        if score < 4:
+            self.next_review = today
+        else:
+            interval = 1
+            if self.consecutive_correct == 2:
+                interval = 6
+            elif self.consecutive_correct > 2:
+                interval = (self.consecutive_correct - 1) * self.efactor
+            scheduled_review = today + datetime.timedelta(days=interval)
+            self.next_review = scheduled_review
         self.save()

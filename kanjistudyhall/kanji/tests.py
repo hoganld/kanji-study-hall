@@ -1,10 +1,11 @@
+import datetime
+from unittest import skip
+
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.utils import DataError, IntegrityError
 from django.test import TestCase
-
-from unittest import skip
 
 from .models import Kanji, KanjiCard, KanjiCardCollection
 
@@ -82,19 +83,31 @@ class KanjiCardTest(TestCase):
         collection.save()
         return collection
 
-    def _create_kanji(self):
-        kanji = Kanji(character='日', keyword='day', heisig_index=12)
+    def _create_kanji(self, character='日', keyword='day', index=12):
+        kanji = Kanji(character=character, keyword=keyword, heisig_index=index)
         kanji.save()
         return kanji
     
     def _create_card(self,
                      mnemonic='midday sun',
+                     default_collection=None,
+                     default_kanji=None,
                      assign_collection=True,
                      assign_kanji=True):
+        """Creates a KanjiCard. If default_collection or default_kanji params
+        are given, they are used. If they are not, defaults will be 
+        automatically assigned, unless assign_collection or assign_kanji
+        are explicitly set to False.
+        
+        """
         card = KanjiCard(mnemonic=mnemonic)
-        if assign_collection:
+        if default_collection:
+            card.collection = default_collection
+        elif assign_collection:
             card.collection = self._create_collection()
-        if assign_kanji:
+        if default_kanji:
+            card.kanji = default_kanji
+        elif assign_kanji:
             card.kanji = self._create_kanji()
         card.save()
         return card
@@ -131,17 +144,62 @@ class KanjiCardTest(TestCase):
         with self.assertRaises(ValueError):
             card.set_review_score(6)
 
-    @skip
-    def test_two_card_same_efactor_same_score_reschedule_together(self):
-        pass
+    def test_review_score_above_3_advances_review_schedule(self):
+        card = self._create_card()
+        original_review = card.next_review
+        card.set_review_score(4)
+        card.refresh_from_db()
+        self.assertTrue(original_review < card.next_review)
+        
+    def test_setting_review_score_below_4_schedules_review_today(self):
+        card = self._create_card()
+        original_review = card.next_review
+        card.set_review_score(3)
+        card.refresh_from_db()
+        self.assertEqual(datetime.date.today(), card.next_review)
+        
+    def test_two_cards_same_efactor_same_score_reschedule_together(self):
+        collection = self._create_collection()
+        card1 = self._create_card(default_collection=collection)
+        kanji = self._create_kanji(index=13, character='月', keyword='month')
+        card2 = self._create_card(mnemonic='waxing moon',
+                                  default_kanji=kanji,
+                                  default_collection=collection)
+        card1.set_review_score(4)
+        card2.set_review_score(4)
+        self.assertEqual(card1.next_review, card2.next_review)
 
-    @skip
-    def test_two_card_different_efactor_same_score_reschedule_separately(self):
-        pass
+    def test_two_cards_different_history_same_score_reschedule_separately(self):
+        collection = self._create_collection()
+        card1 = self._create_card(default_collection=collection)
+        kanji = self._create_kanji(index=13, character='月', keyword='month')
+        card2 = self._create_card(mnemonic='waxing moon',
+                                  default_kanji=kanji,
+                                  default_collection=collection)
+        card1.efactor = 2.6
+        card1.consecutive_correct = 6
+        card1.save()
+        card2.efactor = 1.8
+        card2.save()
+        card1.set_review_score(4)
+        card2.set_review_score(4)
+        self.assertTrue(card1.next_review > card2.next_review)
     
-    @skip
-    def test_two_card_same_efactor_different_score_reschedule_separately(self):
-        pass
+    def test_two_cards_same_history_different_score_reschedule_separately(self):
+        collection = self._create_collection()
+        card1 = self._create_card(default_collection=collection)
+        kanji = self._create_kanji(index=13, character='月', keyword='month')
+        card2 = self._create_card(mnemonic='waxing moon',
+                                  default_kanji=kanji,
+                                  default_collection=collection)
+        card1.efactor = 2.6
+        card1.consecutive_correct = 6
+        card2.efactor = 2.6
+        card2.consecutive_correct = 6
+        card1.set_review_score(5)
+        card2.set_review_score(4)
+        self.assertTrue(card1.next_review > card2.next_review)
+
 
     def test_review_total_increments_correctly(self):
         card = self._create_card()
