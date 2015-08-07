@@ -1,0 +1,7 @@
+{
+"version": 3,
+"mappings": "AAAA,IAAK;EACH,WAAW,EAAE,IAAI",
+"sources": ["../scss/kanjistudyhall.scss"],
+"names": [],
+"file": "kanjistudyhall.css"
+}

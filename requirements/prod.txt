@@ -1,0 +1,5 @@
+-r base.txt
+
+gunicorn>=19.3.0
+whitenoise>=2.0.2
+dj-database-url>=0.3.0
