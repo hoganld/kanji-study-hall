@@ -101,25 +101,54 @@ class KanjiTest(TestCase):
         
 class KanjiCardTest(TestCase):
 
-    @skip
     def test_create_card_fails_without_kanji(self):
-        pass
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        card = KanjiCard()
+        card.mnemonic = 'waxing moon'
+        card.collection = collection
+        with self.assertRaises(IntegrityError):
+            card.save()
 
-    @skip
     def test_create_card_fails_without_mnemonic(self):
-        pass
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        card = KanjiCard()
+        kanji = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card.kanji = kanji
+        card.mnemonic = None
+        card.collection = collection
+        with self.assertRaises(IntegrityError):
+            card.save()
 
-    @skip
     def test_create_card_fails_without_collection(self):
-        pass
+        owner = User.objects.create()
+        card = KanjiCard()
+        kanji = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card.kanji = kanji
+        card.mnemonic = None
+        with self.assertRaises(IntegrityError):
+            card.save()
 
-    @skip
-    def test_create_card_fails_with_empty_kanji(self):
-        pass
-
-    @skip
     def test_create_card_with_empty_mnemonic(self):
-        pass
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        card = KanjiCard()
+        kanji = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card.kanji = kanji
+        card.mnemonic = ''
+        card.collection = collection
+        with self.assertRaises(ValidationError):
+            card.full_clean()
 
     @skip
     def test_review_card_score_too_low_ignored(self):
