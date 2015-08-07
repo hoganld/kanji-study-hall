@@ -1,5 +1,4 @@
 import datetime
-from unittest import skip
 
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -278,10 +277,46 @@ class KanjiCardCollectionTest(TestCase):
             # without changing the default name, this should raise
             self._create_collection()
 
-    @skip
     def test_get_next_card_for_review(self):
-        pass
+        collection = self._create_collection()
+        kanji1 = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card1 = KanjiCard.objects.create(kanji=kanji1,
+                                         mnemonic='midday sun',
+                                         collection=collection)
+        self.assertEqual(collection.next_scheduled_card(), card1)
 
-    @skip
-    def test_get_next_card_for_review_when_caught_up_returns_empty_list(self):
-        pass
+    def test_get_next_card_for_review_when_caught_up_returns_none(self):
+        collection = self._create_collection()
+        kanji1 = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card1 = KanjiCard.objects.create(kanji=kanji1,
+                                         mnemonic='midday sun',
+                                         collection=collection)
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        card1.next_review = tomorrow
+        card1.save()
+        self.assertEqual(collection.next_scheduled_card(), None)
+
+    def test_cards_scored_lt_4_reviewed_last(self):
+        collection = self._create_collection()
+        kanji1 = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        kanji2 = Kanji.objects.create(character='月',
+                                      keyword='month',
+                                      heisig_index=13)
+        KanjiCard.objects.create(kanji=kanji1,
+                                 mnemonic='midday sun',
+                                 collection=collection)
+        KanjiCard.objects.create(kanji=kanji2,
+                                 mnemonic='waxing moon',
+                                 collection=collection)
+        first_card = collection.next_scheduled_card()
+        first_card.set_review_score(3)
+        second_card = collection.next_scheduled_card()
+        second_card.set_review_score(4)
+        third_card = collection.next_scheduled_card()
+        self.assertEqual(third_card, first_card)

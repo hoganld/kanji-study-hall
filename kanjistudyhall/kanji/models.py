@@ -29,6 +29,15 @@ class KanjiCardCollection(models.Model):
     class Meta:
         unique_together = (('owner', 'name'),)
 
+    def next_scheduled_card(self):
+        today = datetime.date.today()
+        next_card = self.kanjicard_set.filter(
+            next_review=today).order_by(
+                '-last_missed', 'consecutive_correct', 'efactor'
+            ).first()
+        return next_card
+        
+
 
 class KanjiCard(models.Model):
     """Represents a single kanji flash card. Associates a kanji
