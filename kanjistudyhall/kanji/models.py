@@ -30,6 +30,10 @@ class KanjiCardCollection(models.Model):
         unique_together = (('owner', 'name'),)
 
     def next_scheduled_card(self):
+        """Find the next scheduled card.
+        Save cards that were already reviewed today until last.
+
+        """
         today = datetime.date.today()
         next_card = self.kanjicard_set.filter(
             next_review=today).order_by(
