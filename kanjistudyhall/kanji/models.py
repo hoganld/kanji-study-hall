@@ -49,3 +49,10 @@ class KanjiCard(models.Model):
             ('collection', 'kanji'),
             ('collection', 'mnemonic'),
         )
+
+    def set_review_score(self, score):
+        if score not in range(0, 6):
+            raise ValueError("Review Score must be between 0 and 5")
+        new_total = self.total_reviews + 1
+        self.total_reviews=new_total
+        self.save()

@@ -150,13 +150,44 @@ class KanjiCardTest(TestCase):
         with self.assertRaises(ValidationError):
             card.full_clean()
 
-    @skip
-    def test_review_card_score_too_low_ignored(self):
-        pass
+    def test_create_valid_card_succeeds(self):
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        kanji = Kanji.objects.create(character='日',
+                                      keyword='day',
+                                      heisig_index=12)
+        card = KanjiCard()
+        card.kanji = kanji
+        card.mnemonic = 'midday sun'
+        card.collection = collection
+        # should not raise
+        card.save()
+        self.assertEqual(KanjiCard.objects.count(), 1)
 
-    @skip
-    def test_review_card_score_too_high_ignored(self):
-        pass
+    def test_review_card_score_too_low_rejected(self):
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        kanji = Kanji(character='日', keyword='day', heisig_index=12)
+        kanji.save()
+        mnemonic = 'midday sun'
+        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
+        card.save()
+        with self.assertRaises(ValueError):
+            card.set_review_score(-1)
+
+    def test_review_card_score_too_high_rejected(self):
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        kanji = Kanji(character='日', keyword='day', heisig_index=12)
+        kanji.save()
+        mnemonic = 'midday sun'
+        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
+        card.save()
+        with self.assertRaises(ValueError):
+            card.set_review_score(6)
 
     @skip
     def test_two_card_same_efactor_same_score_reschedule_together(self):
@@ -170,9 +201,19 @@ class KanjiCardTest(TestCase):
     def test_two_card_same_efactor_different_score_reschedule_separately(self):
         pass
 
-    @skip
     def test_review_total_increments_correctly(self):
-        pass
+        owner = User.objects.create()
+        collection = KanjiCardCollection(owner=owner, name='default')
+        collection.save()
+        kanji = Kanji(character='日', keyword='day', heisig_index=12)
+        kanji.save()
+        mnemonic = 'midday sun'
+        card = KanjiCard(kanji=kanji, mnemonic=mnemonic, collection=collection)
+        card.save()
+        review_total = card.total_reviews
+        card.set_review_score(3)
+        new_total = card.total_reviews
+        self.assertEqual(review_total + 1, new_total)
     
 
 class KanjiCardCollectionTest(TestCase):
