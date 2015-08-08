@@ -1,32 +1,15 @@
 import unittest
 
 from django.conf import settings
-from django.test import LiveServerTestCase
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
 
-class RegistrationTest(LiveServerTestCase):
+from .functionalbase import FunctionalTest
+
+class RegistrationTest(FunctionalTest):
     """We will be using the django-allauth module, which we don't need to
     test per se, as it has its own tests. These tests are intended to simply
     ensure that we have wired up our urls/templates correctly.
 
     """
-
-    def setUp(self):
-        self.browser = webdriver.Firefox()
-        self.browser.implicitly_wait(5)
-
-    def tearDown(self):
-        self.browser.quit()
-        super().tearDown()
-
-    def wait_for_element_with_id(self, element_id):
-        WebDriverWait(self.browser, timeout=30).until(
-            lambda b: b.find_element_by_id(element_id),
-            'Could not find element with id {}. Page text was:\n()'.format(
-                element_id, self.browser.find_element_by_tag_name('body').text
-            )
-        )
 
     def test_signup_signin_signout(self):
         # Sherman studies Japanese in his spare time. Sherman's a nerd.
