@@ -1,4 +1,4 @@
-# kanji-study-hall
+# Kanji Study Hall
 
 Kanji Study Hall is a simple web application which implements the [SuperMemo2](http://www.supermemo.com/english/ol/sm2.htm) spaced repetition algorithm.
 
