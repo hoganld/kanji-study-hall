@@ -84,8 +84,9 @@ class KanjiCardCollectionTest(TestCase):
         response = self.client.get(
             reverse('get_collection', kwargs={'slug': collection.name}))
         self.assertEqual(response.context['collection'], collection)
-        
-    def test_modify_collection(self):
+
+
+    def test_modify_collection_modifies_correctly(self):
         collection = self._legitimate_setup()
         new_name = 'favorite_ice_create'
         response = self.client.post(
@@ -94,6 +95,16 @@ class KanjiCardCollectionTest(TestCase):
         )
         collection.refresh_from_db()
         self.assertEqual(collection.name, new_name)
+
+    def test_modify_collection_redirects(self):
+        collection = self._legitimate_setup()
+        new_name = 'favorite_ice_create'
+        response = self.client.post(
+            reverse('update_collection', kwargs={'slug': collection.name,}),
+            {'name': new_name}
+        )
+        collection.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
 
     def test_user_cannot_change_collection_owner(self):
         owner = self._login_user('goodguy')
@@ -106,7 +117,7 @@ class KanjiCardCollectionTest(TestCase):
         collection.refresh_from_db()
         self.assertEqual(collection.owner, owner)
 
-    def test_delete_collection(self):
+    def test_delete_collection_decrements_collection_count(self):
         collection = self._legitimate_setup()
         pre_count = KanjiCardCollection.objects.count()
         response = self.client.delete(
@@ -137,17 +148,36 @@ class KanjiCardCollectionTest(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    @unittest.skip
-    def test_add_invalid_card(self):
-        pass
+    def test_add_collection_without_name(self):
+        user = self._login_user('user')
+        response = self.client.post(
+            "/kanji/collections/create/",
+            {'name': ''}
+        )
+        self.assertEqual(response.status_code, 200)
 
-    @unittest.skip
-    def test_modify_card_invalidly(self):
-        pass
+    def test_add_collection_anonymously_fails(self):
+        create_url = reverse('create_kanji_collection')
+        response = self.client.post(create_url, {'name': 'anonymous'})
+        self.assertEqual(response.status_code, 302)
+
+    def test_add_valid_collection_redirects_to_collection_detail_view(self):
+        user = self._login_user('user')
+        name = 'validcollection'
+        response = self.client.post(
+            "/kanji/collections/create/",
+            {'name': name}
+        )
+        self.assertRedirects(response,
+                             reverse('get_collection', kwargs={'slug': name}))
 
 
 class KanjiCardTest(TestCase):
 
+    @unittest.skip
+    def test_wrong_user_cannot_create_card(self):
+        pass
+    
     @unittest.skip
     def test_wrong_user_cannot_view_card(self):
         pass
@@ -164,6 +194,10 @@ class KanjiCardTest(TestCase):
     def test_get_card(self):
         pass
 
+    @unittest.skip
+    def test_add_card(self):
+        pass
+    
     @unittest.skip
     def test_modify_card(self):
         pass
@@ -182,6 +216,14 @@ class KanjiCardTest(TestCase):
 
     @unittest.skip
     def test_delete_nonexistant_card(self):
+        pass
+
+    @unittest.skip
+    def test_add_card_with_empty_mnemonic(self):
+        pass
+
+    @unittest.skip
+    def test_add_card_with_invalid_kanji(self):
         pass
 
     @unittest.skip
